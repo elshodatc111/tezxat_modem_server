@@ -1,0 +1,1 @@
+{% macro bars(sig) %}{% set lvl = 0 if sig is none else (1 if sig < 8 else (2 if sig < 14 else (3 if sig < 20 else 4))) %}<span class="bars" title="CSQ {{ sig if sig is not none else '—' }}">{% for i in range(1,5) %}<i class="{{ 'on' if i <= lvl }}" style="height:{{ 4*i }}px"></i>{% endfor %}</span>{% endmacro %}

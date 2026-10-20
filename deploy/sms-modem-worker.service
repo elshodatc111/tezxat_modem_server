@@ -1,0 +1,18 @@
+[Unit]
+Description=SMS Modem Worker (modemlar + hosting sinxronizatsiyasi)
+After=network-online.target mysql.service mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=smsmodem
+Group=dialout
+WorkingDirectory=/opt/sms-modem-server
+EnvironmentFile=/opt/sms-modem-server/.env
+ExecStart=/opt/sms-modem-server/.venv/bin/python -m app.worker
+Restart=always
+RestartSec=5
+# modem portlariga kirish uchun "dialout" guruhi kerak
+
+[Install]
+WantedBy=multi-user.target

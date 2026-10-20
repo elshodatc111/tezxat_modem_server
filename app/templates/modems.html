@@ -1,0 +1,101 @@
+{% extends "base.html" %}{% from "_signal.html" import bars %}{% from "_icons.html" import ico %}{% block title %}Modemlar{% endblock %}
+{% block content %}
+<div class="pagehead"><div><h1>Modemlar</h1><p class="sub" style="margin:0">Serverga ulangan USB modemlar. Yangisini ulasangiz, pastdagi qidiruv uni o'zi topadi.</p></div></div>
+
+<div class="card" id="scan" style="margin-top:18px">
+  <div class="scanhead">
+    <h2 style="margin:0">Yangi modemlarni qidirish</h2>
+    <span id="scanstate" class="muted"></span><span class="sp"></span>
+    <button class="btn" id="scanbtn" type="button">{{ ico('search') }} Modemlarni qidirish</button>
+  </div>
+  <p class="hint" style="margin:8px 0 14px">Qidiruv USB hub orqali ulangan modemlarni ham topadi: har bir USB qurilmaning AT portini o'zi aniqlaydi. Topilgan modemga nom bering va «Qo'shish» ni bosing.</p>
+  <div id="found" class="grid g2"></div>
+  <div id="scanhelp" class="hint" style="display:none"></div>
+</div>
+
+<div class="card"><h2>Qo'shilgan modemlar</h2><div class="tbl"><table>
+<thead><tr><th>Nomi</th><th>Holat</th><th>Operator</th><th>Signal</th><th>Port</th><th>Bugun</th><th></th></tr></thead><tbody>
+{% for v in modems %}{% set m = v.m %}{% set st = m.status if v.alive or m.status in ('disabled','busy','no_funds') else 'offline' %}<tr>
+<td><a href="/modems/{{ m.id }}"><b>{{ m.name }}</b></a><div class="hint">{{ m.model or '' }}</div></td>
+<td><span class="badge b-{{ st }}">{{ st }}</span></td>
+<td>{{ m.operator or '—' }}</td><td>{{ bars(m.signal) }}</td><td class="muted" style="word-break:break-all;max-width:260px">{{ m.port }}</td><td>{{ m.sent_today }}</td>
+<td class="nowrap"><form method="post" action="/modems/{{ m.id }}/toggle" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sec sm">{{ "O'chirish" if m.enabled else 'Yoqish' }}</button></form></td>
+</tr>{% else %}<tr><td colspan="7" class="muted">Hali modem qo'shilmagan. Yuqoridagi qidiruv tugmasidan foydalaning.</td></tr>{% endfor %}
+</tbody></table></div></div>
+
+<details class="card">
+  <summary style="cursor:pointer;font-weight:600">Qo'lda qo'shish (qidiruv topa olmasa)</summary>
+  <form method="post" action="/modems"><input type="hidden" name="csrf" value="{{ csrf }}">
+  {% set m = None %}{% include "_modem_form.html" %}
+  <p><button class="btn">Qo'shish</button></p></form>
+  <h2 style="margin-top:18px">Aniqlangan portlar</h2>
+  {% for p in ports %}<div><code>{{ p.device }}</code> <span class="muted">{{ p.desc }}</span></div>{% else %}<div class="muted">Hech narsa topilmadi. Modem ulanganini tekshiring: <code>lsusb</code>, <code>ls /dev/ttyUSB*</code></div>{% endfor %}
+</details>
+{% endblock %}
+{% block scripts %}<script>
+(function(){
+  var CSRF = {{ csrf|tojson }}, timer = null, started = false;
+  var btn = document.getElementById('scanbtn'), stateEl = document.getElementById('scanstate'), box = document.getElementById('found'), help = document.getElementById('scanhelp');
+  function el(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function post(url, data){ var fd = new FormData(); fd.append('csrf', CSRF); for (var k in (data||{})) fd.append(k, data[k]); return fetch(url, {method:'POST', body: fd, headers: {'x-csrf': CSRF}}); }
+  function bars(sig){ var s = el('span','bars'); var lvl = sig == null ? 0 : (sig < 8 ? 1 : (sig < 14 ? 2 : (sig < 20 ? 3 : 4))); for (var i=1;i<=4;i++){ var b = el('i', i <= lvl ? 'on' : ''); b.style.height = (4*i)+'px'; s.appendChild(b);} return s; }
+  function kv(dl, k, v){ if (v == null || v === '') return; dl.appendChild(el('dt', null, k)); dl.appendChild(el('dd', null, String(v))); }
+  function hidden(f, n, v){ var i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); }
+  function card(r){
+    var c = el('div', 'found ' + r.status), t = el('div','ttl');
+    var title = (r.manufacturer ? r.manufacturer + ' ' : '') + (r.model || 'USB qurilma');
+    t.appendChild(el('strong', null, title));
+    var label = {new:'yangi', added:'qo\'shilgan', moved:'port o\'zgargan', no_at:'javob bermadi'}[r.status] || r.status;
+    t.appendChild(el('span', 'badge b-' + r.status, label));
+    if (r.status !== 'no_at') { var sp = el('span','sp'); t.appendChild(sp); t.appendChild(bars(r.signal)); }
+    c.appendChild(t);
+    var dl = el('dl','kvs');
+    kv(dl,'IMEI',r.imei); kv(dl,'Operator',r.operator); kv(dl,'SIM',r.sim); kv(dl,'USB',r.usb); kv(dl,'AT port', r.port || (r.ports||[]).join(', '));
+    c.appendChild(dl);
+    if (r.status === 'new') {
+      var f = el('form'); f.method = 'post'; f.action = '/modems/quick-add';
+      hidden(f,'csrf',CSRF); hidden(f,'port',r.port); hidden(f,'ussd_balance_code', r.suggest_balance_code || '*100#');
+      var n = document.createElement('input'); n.name = 'name'; n.value = r.suggest_name || ''; n.required = true; n.maxLength = 60; n.setAttribute('aria-label','Modem nomi'); f.appendChild(n);
+      var b = el('button','btn','Qo\'shish'); f.appendChild(b); c.appendChild(f);
+    } else if (r.status === 'added') {
+      var a = el('a', null, r.modem + ' sifatida qo\'shilgan'); a.href = '/modems/' + r.modem_id; c.appendChild(a);
+    } else if (r.status === 'moved') {
+      c.appendChild(el('div','hint', '«' + r.modem + '» modemi boshqa USB portga ko\'chirilgan. Yangi portni saqlang.'));
+      var f2 = el('form'); f2.method = 'post'; f2.action = '/modems/' + r.modem_id + '/set-port'; hidden(f2,'csrf',CSRF); hidden(f2,'port',r.port);
+      f2.appendChild(el('button','btn','Portni yangilash')); c.appendChild(f2);
+    } else {
+      c.appendChild(el('div','hint','Bu USB qurilma AT buyruqqa javob bermadi: modem emas, band yoki ModemManager ushlab turgan bo\'lishi mumkin.'));
+    }
+    return c;
+  }
+  function render(s){
+    var running = s.status === 'queued' || s.status === 'running';
+    btn.disabled = running;
+    stateEl.textContent = '';
+    if (running) { var p = el('span','pulse'); stateEl.appendChild(p); stateEl.appendChild(document.createTextNode(' ' + (s.worker_silent ? 'Worker javob bermayapti (sms-modem-worker ishlayaptimi?)' : 'Qidirilmoqda...'))); }
+    else if (s.status === 'done') stateEl.textContent = s.results.length + ' ta USB qurilma tekshirildi';
+    else if (s.status === 'error') stateEl.textContent = 'Xato: ' + (s.error || '');
+    box.textContent = '';
+    (s.results || []).forEach(function(r){ box.appendChild(card(r)); });
+    var usable = (s.results||[]).filter(function(r){ return r.status !== 'added'; });
+    help.style.display = (s.status === 'done' && !usable.length) ? 'block' : 'none';
+    help.textContent = (s.status === 'done' && !usable.length) ? 'Yangi modem topilmadi. USB 2.0 portga ulanganini, modem chiroqlari yonganini va ModemManager o\'chirilganini tekshiring.' : '';
+    return running;
+  }
+  function poll(){
+    fetch('/api/scan').then(function(r){return r.json();}).then(function(s){
+      var running = render(s);
+      if (!started && !running) {
+        var age = s.finished_at ? (Date.now() - Date.parse(s.finished_at + 'Z')) / 1000 : 1e9;
+        started = true;
+        if (age > 30) { return start(); }
+      }
+      started = true;
+      if (running) timer = setTimeout(poll, 1000);
+    }).catch(function(){ timer = setTimeout(poll, 3000); });
+  }
+  function start(){ btn.disabled = true; post('/api/scan').then(function(){ clearTimeout(timer); setTimeout(poll, 400); }); }
+  btn.addEventListener('click', function(){ started = true; start(); });
+  poll();
+})();
+</script>{% endblock %}

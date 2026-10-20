@@ -1,0 +1,13 @@
+<div class="grid g2">
+  <div><label>Nomi</label><input name="name" value="{{ m.name if m else '' }}" required maxlength="60" placeholder="Modem-1"></div>
+  <div><label>Port</label><input name="port" list="ports" value="{{ m.port if m else '' }}" required placeholder="/dev/serial/by-path/..."><datalist id="ports">{% for p in ports %}<option value="{{ p.device }}">{{ p.desc }}</option>{% endfor %}<option value="mock://1">mock://1 (demo)</option></datalist>
+    <div class="hint">Barqaror nom uchun <code>/dev/serial/by-path/...</code> ishlating (modem bir xil USB portda tursa o'zgarmaydi). Bir nechta port bo'lsa, AT buyruqqa javob beradiganini tanlang.</div></div>
+  <div><label>Tezlik (baud)</label><input type="number" name="baudrate" value="{{ m.baudrate if m else 115200 }}"></div>
+  <div><label>SIM PIN (agar so'rasa)</label><input name="pin" value="{{ (m.pin or '') if m else '' }}" maxlength="10" autocomplete="off"></div>
+  <div><label>Kunlik limit (0 = cheksiz)</label><input type="number" name="daily_limit" value="{{ m.daily_limit if m else 0 }}"><div class="hint">SIM bloklanmasligi uchun tavsiya etiladi.</div></div>
+  <div><label>SMS lar orasidagi pauza (soniya)</label><input type="number" step="0.5" name="min_interval" value="{{ m.min_interval if m else 3 }}"></div>
+  <div><label>SIM balans USSD kodi</label><input name="ussd_balance_code" value="{{ (m.ussd_balance_code or '') if m else '*100#' }}" placeholder="*100#"></div>
+  <div><label>SMS paket USSD kodi</label><input name="ussd_package_code" value="{{ (m.ussd_package_code or '') if m else '' }}" placeholder="*107#"><div class="hint">Kodlar operatorga qarab farq qiladi — operatoringizdan aniqlang.</div></div>
+  <div><label>Avto-tekshirish (daqiqa, 0 = o'chiq)</label><input type="number" name="auto_ussd_minutes" value="{{ m.auto_ussd_minutes if m else 0 }}"></div>
+  <div><label>Izoh</label><input name="note" value="{{ (m.note or '') if m else '' }}" maxlength="255"></div>
+</div>

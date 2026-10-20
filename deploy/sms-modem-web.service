@@ -1,0 +1,17 @@
+[Unit]
+Description=SMS Modem Web Panel
+After=network-online.target mysql.service mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=smsmodem
+Group=smsmodem
+WorkingDirectory=/opt/sms-modem-server
+EnvironmentFile=/opt/sms-modem-server/.env
+ExecStart=/opt/sms-modem-server/.venv/bin/uvicorn app.web:app --host ${WEB_HOST} --port ${WEB_PORT} --proxy-headers
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

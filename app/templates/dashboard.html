@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% from "_signal.html" import bars %}{% block title %}Bosh sahifa{% endblock %}
+{% block content %}
+<h1>Bosh sahifa</h1><p class="sub">Modemlar va navbat holati. Sahifa har 8 soniyada yangilanadi.</p>
+<div class="card row" style="padding:14px 18px">
+  <strong>Hosting</strong>
+  {% if not hosting.configured %}<span class="badge b-warn">sozlanmagan</span> <a href="/settings">Sozlamalarni ochish</a>
+  {% elif hosting.error %}<span class="badge b-error">xato</span> <span class="muted">{{ hosting.error }}</span>
+  {% else %}<span class="badge b-ok">ulangan</span> <span class="muted">{{ hosting.url }} · oxirgi muvaffaqiyatli aloqa: {{ hosting.last_ok|ago }}</span>{% endif %}
+</div>
+<div class="grid g4" style="margin-bottom:18px">
+  {% for k, label in [('pending','Navbatda'),('sending','Yuborilmoqda'),('sent','Yuborildi'),('delivered','Yetkazildi')] %}
+  <div class="card stat {{ 'hl' if k == 'delivered' }}"><div class="n">{{ counts.get(k, 0) }}</div><div class="l">{{ label }}</div></div>{% endfor %}
+</div>
+<div class="pagehead"><h2 style="margin:0">Modemlar</h2><span class="sp"></span><a class="btn sm" href="/modems">Modem qidirish</a></div>
+{% if not modems %}<div class="card muted">Hali modem qo'shilmagan. <a href="/modems">Modemlar sahifasida</a> «Modemlarni qidirish» tugmasini bosing.</div>{% endif %}
+<div class="grid g2">
+{% for v in modems %}{% set m = v.m %}{% set st = m.status if v.alive or m.status in ('disabled','busy','no_funds') else 'offline' %}
+  <div class="card mcard">
+    <div class="top"><strong><a href="/modems/{{ m.id }}">{{ m.name }}</a></strong><span class="badge b-{{ st }}">{{ st }}</span><span class="sp"></span>{{ bars(m.signal) }}</div>
+    <div class="meta">{{ m.operator or '—' }} · {{ m.model or 'model noma\'lum' }} · {{ m.port }}</div>
+    {% if m.last_error %}<div class="flash bad" style="margin:0;padding:7px 11px">{{ m.last_error }}</div>{% endif %}
+    <div class="mini">
+      <div><small>SIM balans · {{ m.balance_at|ago }}</small>{{ m.balance_text or '—' }}</div>
+      <div><small>SMS paket · {{ m.package_at|ago }}</small>{{ m.package_text or '—' }}</div>
+      <div><small>Bugun</small>{{ m.sent_today }}{% if m.daily_limit %} / {{ m.daily_limit }}{% endif %}</div>
+      <div><small>Jami · xato</small>{{ m.sent_total }} · {{ m.failed_total }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+<div class="card"><h2>So'nggi hodisalar</h2>
+{% for e in events %}<div class="logrow"><span class="badge b-{{ e.level if e.level != 'info' else 'ok' }}">{{ e.level }}</span><span class="muted nowrap">{{ e.created_at|localtime }}</span><span>{{ e.source }}: {{ e.message }}</span></div>{% else %}<div class="muted">Hozircha yo'q</div>{% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}<script>setTimeout(function(){location.reload()}, 8000)</script>{% endblock %}

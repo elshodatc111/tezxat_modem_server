@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% block title %}Navbat{% endblock %}
+{% block content %}
+<h1>Mahalliy navbat</h1><p class="sub">Hostingdan olingan SMS lar: jami {{ total }} ta.</p>
+<div class="card">
+<div class="row" style="margin-bottom:10px">{% for k, l in [('', 'Hammasi'), ('pending', 'Navbatda'), ('sending', 'Yuborilmoqda'), ('sent', 'Yuborildi'), ('delivered', 'Yetkazildi'), ('failed', 'Xato')] %}
+<a class="btn sm {{ '' if status == k else 'sec' }}" href="/outbox?status={{ k }}">{{ l }}</a>{% endfor %}</div>
+<div class="tbl"><table><thead><tr><th>#</th><th>Telefon</th><th>Matn</th><th>Holat</th><th>Modem</th><th>Vaqt</th><th></th></tr></thead><tbody>
+{% for o in rows %}<tr>
+<td>{{ o.remote_id }}</td><td class="nowrap">{{ o.phone }}</td>
+<td style="max-width:320px;word-break:break-word">{{ o.text[:100] }}<div class="hint">{{ o.parts }} × {{ o.encoding }}</div></td>
+<td><span class="badge b-{{ o.status }}">{{ o.status }}</span>{% if o.error %}<div class="hint">{{ o.error }}</div>{% endif %}<div class="hint">urinish: {{ o.attempts }}</div></td>
+<td>{{ names.get(o.modem_id, '—') }}</td><td class="nowrap">{{ o.created_at|localtime('%d.%m %H:%M:%S') }}</td>
+<td class="nowrap">
+{% if o.status in ('failed', 'sending') %}<form method="post" action="/outbox/{{ o.id }}/retry" style="display:inline"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn sec sm">Qayta</button></form>{% endif %}
+{% if o.status == 'pending' %}<form method="post" action="/outbox/{{ o.id }}/fail" style="display:inline" onsubmit="return confirm('Bekor qilinsinmi? Foydalanuvchiga pul qaytariladi.')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn bad sm">Bekor</button></form>{% endif %}
+</td></tr>{% else %}<tr><td colspan="7" class="muted">Bo'sh</td></tr>{% endfor %}
+</tbody></table></div>
+{% if pages > 1 %}<div class="pager">{% if page > 1 %}<a href="/outbox?status={{ status }}&page={{ page - 1 }}">‹ Oldingi</a>{% endif %}<span>{{ page }} / {{ pages }}</span>{% if page < pages %}<a href="/outbox?status={{ status }}&page={{ page + 1 }}">Keyingi ›</a>{% endif %}</div>{% endif %}
+</div>
+{% endblock %}

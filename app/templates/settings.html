@@ -1,0 +1,42 @@
+{% extends "base.html" %}{% block title %}Sozlamalar{% endblock %}
+{% block content %}
+<h1>Sozlamalar</h1><p class="sub">Hosting bilan ulanish, navbat tezligi va SIM balansni nazorat qilish.</p>
+<form method="post" action="/settings"><input type="hidden" name="csrf" value="{{ csrf }}">
+<div class="card"><h2>Hosting (Laravel) bilan ulanish</h2>
+<p class="muted">Hosting boshqa joyga ko'chirilsa, shu yerda manzilni o'zgartirasiz — kodga tegish shart emas.</p>
+<div class="grid g2">
+<div><label>Hosting URL</label><input name="hosting_url" id="hurl" value="{{ cfg.hosting_url }}" placeholder="https://sms.example.uz"></div>
+<div><label>Gateway token {% if token_hint %}<span class="muted">(joriy: {{ token_hint }})</span>{% endif %}</label><input name="gateway_token" id="htoken" type="password" autocomplete="new-password" placeholder="{{ 'o\'zgartirmaslik uchun bo\'sh qoldiring' if token_hint else 'gw_...' }}"></div>
+</div>
+<p class="row"><button type="button" class="btn sec sm" onclick="testConn()">Ulanishni tekshirish</button><span id="tres" class="muted"></span></p>
+</div>
+<div class="card"><h2>Navbat va tezlik</h2>
+<div class="grid g3">
+<div><label>Tekshirish oralig'i (soniya)</label><input type="number" step="0.5" name="poll_interval" value="{{ cfg.poll_interval }}"></div>
+<div><label>Long-poll kutish (soniya)</label><input type="number" name="long_poll_wait" value="{{ cfg.long_poll_wait }}"><div class="hint">0 = o'chiq. Hosting PHP vaqt limitidan kichik bo'lsin (≤20).</div></div>
+<div><label>Bir marta olinadigan SMS</label><input type="number" name="pull_batch" value="{{ cfg.pull_batch }}"></div>
+<div><label>Mahalliy navbat sig'imi</label><input type="number" name="local_queue_cap" value="{{ cfg.local_queue_cap }}"></div>
+<div><label>Heartbeat oralig'i (soniya)</label><input type="number" name="heartbeat_interval" value="{{ cfg.heartbeat_interval }}"></div>
+<div><label>Maks. yuborish urinishlari</label><input type="number" name="max_send_attempts" value="{{ cfg.max_send_attempts }}"></div>
+<div><label>Tarixni saqlash (kun)</label><input type="number" name="keep_days" value="{{ cfg.keep_days }}"></div>
+<div><label>Worker nomi</label><input name="worker_name" value="{{ cfg.worker_name }}"></div>
+<div><label>HTTP timeout (soniya)</label><input type="number" name="http_timeout" value="{{ cfg.http_timeout }}"></div>
+<div><label>Minimal SIM balans (so'm)</label><input type="number" name="min_balance" value="{{ cfg.min_balance }}"><div class="hint">SIM balansi shundan past bo'lsa modem "no_funds" bo'ladi va SMS yuborilmaydi. 0 = o'chiq. Modemda "USSD balans kodi" kiritilgan bo'lishi kerak.</div></div>
+<div><label>Balansni har N ta SMS dan keyin tekshirish</label><input type="number" name="balance_check_every" value="{{ cfg.balance_check_every }}"></div>
+<div><label>Balansni avto-tekshirish (daqiqa)</label><input type="number" name="balance_check_minutes" value="{{ cfg.balance_check_minutes }}"></div>
+</div>
+<label><input type="checkbox" name="request_delivery_report" value="1" {{ 'checked' if cfg.request_delivery_report == '1' }}> Yetkazish hisobotini so'rash (delivered holati)</label>
+<p><button class="btn">Saqlash</button></p></div>
+</form>
+<div class="card"><h2>Parolni o'zgartirish</h2>
+<form method="post" action="/settings/password"><input type="hidden" name="csrf" value="{{ csrf }}"><div class="grid g2">
+<div><label>Joriy parol</label><input type="password" name="current" required></div><div><label>Yangi parol (≥ 8)</label><input type="password" name="new" required minlength="8"></div></div>
+<p><button class="btn sec">O'zgartirish</button></p></form></div>
+{% endblock %}
+{% block scripts %}<script>
+function testConn(){
+  var fd = new FormData(); fd.append('hosting_url', document.getElementById('hurl').value); fd.append('gateway_token', document.getElementById('htoken').value); fd.append('csrf', {{ csrf|tojson }});
+  document.getElementById('tres').textContent = 'Tekshirilmoqda...';
+  fetch('/settings/test', {method:'POST', body: fd, headers: {'x-csrf': {{ csrf|tojson }}}}).then(r => r.json()).then(j => { document.getElementById('tres').textContent = (j.ok ? 'Tayyor: ' : 'Xato: ') + j.message; });
+}
+</script>{% endblock %}

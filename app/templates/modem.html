@@ -1,0 +1,55 @@
+{% extends "base.html" %}{% from "_signal.html" import bars %}{% from "_icons.html" import ico %}{% block title %}{{ m.name }}{% endblock %}
+{% block content %}
+{% set st = m.status if v.alive or m.status in ('disabled','busy','no_funds') else 'offline' %}
+<div class="pagehead"><div><a href="/modems" class="muted">← Modemlar</a><h1 style="margin-top:6px">{{ m.name }}</h1></div>
+<span class="badge b-{{ st }}" style="margin-bottom:6px">{{ st }}</span><span style="margin-bottom:6px">{{ bars(m.signal) }}</span></div>
+<p class="sub">{{ m.operator or '—' }} · {{ m.model or 'model noma\'lum' }} · IMEI {{ m.imei or '—' }} · SIM: {{ m.sim_state or '—' }} · oxirgi aloqa: {{ m.last_seen|ago }}</p>
+{% if m.last_error %}<div class="flash bad">{{ m.last_error }}</div>{% endif %}
+
+<div class="grid g2" style="align-items:start">
+<div class="card"><h2>Boshqaruv</h2>
+  <div class="row">
+    <button class="btn sm" onclick="cmd('ussd_balance')">{{ ico('wallet') }} SIM balans</button>
+    <button class="btn sm" onclick="cmd('ussd_package')">SMS paket</button>
+    <button class="btn sm sec" onclick="cmd('info')">Ma'lumot</button>
+    <button class="btn sm sec" onclick="cmd('reinit')">{{ ico('refresh') }} Qayta ulash</button>
+  </div>
+  <label>Ixtiyoriy USSD kod</label>
+  <div class="row"><input id="ussd" placeholder="*100#" style="flex:1"><button class="btn sm" onclick="cmd('ussd', document.getElementById('ussd').value)">Yuborish</button></div>
+  <label>Test SMS</label>
+  <div class="row"><input id="tphone" placeholder="+998901234567" style="flex:1;min-width:150px"><input id="ttext" placeholder="Matn" value="Test SMS" style="flex:2;min-width:150px"><button class="btn sm ok" onclick="testSms()">Yuborish</button></div>
+  <label>Natija</label><pre class="out" id="out">—</pre>
+  <div class="mini" style="margin-top:14px">
+    <div><small>SIM balans · {{ m.balance_at|localtime }}</small>{{ m.balance_text or '—' }}</div>
+    <div><small>SMS paket · {{ m.package_at|localtime }}</small>{{ m.package_text or '—' }}</div>
+  </div>
+</div>
+<div class="card"><h2>Sozlamalar</h2>
+<form method="post" action="/modems/{{ m.id }}"><input type="hidden" name="csrf" value="{{ csrf }}">
+{% include "_modem_form.html" %}
+<p class="row"><button class="btn">Saqlash</button></p></form>
+<form method="post" action="/modems/{{ m.id }}/delete" onsubmit="return confirm('Modem o\'chirilsinmi?')"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="btn bad sm">Modemni o'chirish</button></form>
+</div></div>
+<div class="card"><h2>So'nggi buyruqlar</h2>
+{% for c in cmds %}<div class="logrow" style="display:block"><span class="badge b-{{ c.status }}">{{ c.status }}</span> <b>{{ c.kind }}</b> <span class="muted">{{ c.payload or '' }} · {{ c.created_at|localtime }}</span><div style="white-space:pre-wrap;margin-top:3px">{{ c.result or '' }}</div></div>{% else %}<div class="muted">Hali buyruq berilmagan.</div>{% endfor %}</div>
+{% endblock %}
+{% block scripts %}<script>
+var CSRF = {{ csrf|tojson }}, MID = {{ m.id }};
+function show(t){document.getElementById('out').textContent = t;}
+function cmd(kind, payload){
+  show('Buyruq yuborildi, kuting...');
+  var fd = new FormData(); fd.append('kind', kind); fd.append('payload', payload || ''); fd.append('csrf', CSRF);
+  fetch('/modems/' + MID + '/command', {method:'POST', body: fd, headers: {'x-csrf': CSRF}})
+   .then(r => r.json().then(j => ({ok: r.ok, j: j})))
+   .then(x => { if(!x.ok){ show(x.j.error || x.j.detail || 'Xato'); return; } poll(x.j.id, 0); })
+   .catch(e => show('Xato: ' + e));
+}
+function poll(id, n){
+  fetch('/api/commands/' + id).then(r => r.json()).then(j => {
+    if (j.status === 'done' || j.status === 'error'){ show((j.status === 'error' ? 'Xato: ' : 'Tayyor: ') + (j.result || '')); if (j.status === 'done') setTimeout(function(){location.reload()}, 2500); return; }
+    if (n > 90){ show('Javob kelmadi (worker ishlayaptimi?)'); return; }
+    show('Bajarilmoqda... (' + j.status + ')'); setTimeout(function(){ poll(id, n + 1) }, 1000);
+  });
+}
+function testSms(){ cmd('send_test', JSON.stringify({to: document.getElementById('tphone').value, text: document.getElementById('ttext').value})); }
+</script>{% endblock %}

@@ -1,0 +1,5 @@
+# Huawei modemlar ko'pincha "CD-ROM" rejimida chiqadi. usb_modeswitch buni odatda o'zi hal qiladi.
+# Modem portini barqaror nom bilan ishlatish uchun /dev/serial/by-id/... dan foydalaning (bu fayl shart emas).
+# Misol (idVendor/idProduct ni `lsusb` dan oling):
+# SUBSYSTEM=="tty", ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1506", ENV{ID_USB_INTERFACE_NUM}=="02", SYMLINK+="modem1"
+# So'ng:  sudo udevadm control --reload && sudo udevadm trigger   ->   port: /dev/modem1

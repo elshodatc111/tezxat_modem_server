@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block title %}Jurnal{% endblock %}
+{% block content %}
+<h1>Jurnal</h1><p class="sub">Worker va modemlarning so'nggi 200 ta hodisasi.</p>
+<div class="card">
+<div class="row" style="margin-bottom:12px">{% for k, l in [('', 'Hammasi'), ('info', 'Ma\'lumot'), ('warn', 'Ogohlantirish'), ('error', 'Xato')] %}<a class="btn sm {{ '' if level == k else 'sec' }}" href="/events?level={{ k }}">{{ l }}</a>{% endfor %}</div>
+{% for e in rows %}<div class="logrow"><span class="badge b-{{ e.level if e.level != 'info' else 'ok' }}">{{ e.level }}</span><span class="muted nowrap">{{ e.created_at|localtime }}</span><b>{{ e.source }}</b><span>{{ e.message }}</span></div>{% else %}<div class="muted">Hozircha hodisa yo'q.</div>{% endfor %}
+</div>{% endblock %}
