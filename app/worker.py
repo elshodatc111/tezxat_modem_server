@@ -558,8 +558,14 @@ class SyncRunner(threading.Thread):
             return 0
         with session_scope() as s:
             for m in messages:
-                if s.query(Outbox.id).filter(Outbox.remote_id == m["id"]).first():
-                    continue
+                existing = s.query(Outbox).filter(Outbox.remote_id == m["id"]).first()
+                if existing:
+                    done = existing.status in ("sent", "delivered", "failed") and existing.reported_status == existing.status
+                    if not done:
+                        continue     # haqiqiy takror: SMS hali ishlanmoqda
+                    # Eski, allaqachon yakunlangan yozuv: hosting ID lari qaytadan boshlangan (yangi baza/hosting).
+                    s.delete(existing)
+                    s.flush()
                 info = pdumod.analyze(m["text"])
                 s.add(Outbox(remote_id=m["id"], phone=m["to"], text=m["text"], encoding=info["encoding"], parts=info["parts"]))
         return len(messages)

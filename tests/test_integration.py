@@ -131,3 +131,23 @@ def test_no_pull_when_no_modem_online():
         cfg = st.get_all(s)
     assert sync.pull(client, cfg) == 0
     assert host.status(1) == "queued"
+
+
+def test_reused_remote_id_after_hosting_reset_is_accepted():
+    """Hosting bazasi yangilanib ID lar 1 dan boshlansa, eski yakunlangan yozuv yangi SMS ni to'smasligi kerak."""
+    from app.db import session_scope
+    from app.models import Outbox
+    from app.worker import SyncRunner
+
+    class FakeClient:
+        def pull(self, limit, wait, worker):
+            return [{"id": 1, "to": "+998901234567", "text": "yangi", "encoding": "gsm7", "parts": 1, "attempt": 1}]
+
+    with session_scope() as s:
+        s.add(Outbox(remote_id=1, phone="+998900000000", text="eski", status="sent", reported_status="sent"))
+        s.add(Modem(name="t", port="mock://x", enabled=True, status="online"))
+    cfg = {"pull_batch": "5", "local_queue_cap": "30", "long_poll_wait": "0", "worker_name": "w"}
+    assert SyncRunner().pull(FakeClient(), cfg) == 1
+    with session_scope() as s:
+        row = s.query(Outbox).filter_by(remote_id=1).one()
+        assert row.text == "yangi" and row.status == "pending"
